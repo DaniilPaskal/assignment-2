@@ -26,7 +26,7 @@ server.listen(8080, '0.0.0.0', function() {
 /* Database */
 
 // Connect to database
-mongoose.connect('mongodb+srv://dpaskal0409:Mz7yzBryOt5JOoaf@cluster0.bpvsgim.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0');
+mongoose.connect('mongodb+srv://dpaskal0409:Mz7yzBryOt5JOoaf@cluster0.bpvsgim.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', { dbName: "store" });
 
 var Schema = mongoose.Schema;
 
@@ -165,7 +165,7 @@ express.post('/register', async function(req, res) {
 express.get('/login', async function(req, res) {
     const { email, password } = req.body;
 
-    User.findOne({ 'email': email, "password": password })
+    User.findOne({ email: email, password: password })
         .exec()
         .then((user) => {
             if (user) {
@@ -226,7 +226,7 @@ express.post('/comment', async function(req, res) {
 express.get('/get-comments', async function(req, res) {
     const { product } = req.body;
 
-    Comment.find({ 'product': product })
+    Comment.find({ product: product })
         .exec()
         .then((comments) => {
             res.send(comments);
@@ -243,7 +243,7 @@ express.put('/update-rating', async function(req, res) {
     var rating = 0;
 
     // Find all comments for product and get sum and count of ratings
-    await Comment.find({ 'product': product }, "rating")
+    await Comment.find({ product: product }, "rating")
         .exec()
         .then((comments) => {
             comments.map((comment) => {
@@ -259,7 +259,7 @@ express.put('/update-rating', async function(req, res) {
     rating = ratingSum / ratingCount;
 
     // Update rating
-    Product.updateOne({ '_id': product }, { $set: { rating: rating } })
+    Product.updateOne({ _id: product }, { $set: { rating: rating } })
         .exec()
         .then(() => {
             res.send(`Rating has been updated to ${rating}.`);
@@ -279,8 +279,10 @@ express.put('/update-cart', async function(req, res) {
     await Cart.findOne({ user: user }, "products quantities")
         .exec()
         .then((cart) => {
-            products = cart.products;
-            quantities = cart.quantities;
+            if (cart) {
+                products = cart.products;
+                quantities = cart.quantities;
+            }
         })
         .catch((err) => {
             res.send(`Error loading cart.`);
@@ -320,8 +322,10 @@ express.post('/order', async function(req, res, next) {
     await User.findOne({ email: email }, "_id purchaseHistory")
         .exec()
         .then((user) => {
-            purchaseHistory = user.purchaseHistory;
-            user = user._id;
+            if (user) {
+                purchaseHistory = user.purchaseHistory;
+                user = user._id;
+            }
         }).catch(err => {
             next(err);
         });
