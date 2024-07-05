@@ -54,18 +54,19 @@ var Product = mongoose.model("products", productSchema);
 // User schema and model
 var userSchema = new Schema(
     {
-        name: {
-            type: String,
-            required: true,
-        },
+        name: String,
         email: {
             type: String,
+            required: true,
             unique: true
         },
 		password: String,
         address: String,
         province: String,
-        purchaseHistory: Array
+        purchaseHistory: [{ 
+            type: Schema.Types.ObjectId, 
+            ref: 'Product' 
+        }]
     }
 )
 var User = mongoose.model("users", userSchema);
@@ -73,11 +74,17 @@ var User = mongoose.model("users", userSchema);
 // Comment schema and model
 var commentSchema = new Schema(
     {
-        product: Product,
-        user: User,
+        product: { 
+            type: Schema.Types.ObjectId, 
+            ref: 'Product' 
+        },
+        user: { 
+            type: Schema.Types.ObjectId, 
+            ref: 'User' 
+        },
         rating: Number,
 		text: String,
-        images: Array
+        images: [String]
     }
 )
 var Comment = mongoose.model("comments", commentSchema);
@@ -85,9 +92,15 @@ var Comment = mongoose.model("comments", commentSchema);
 // Cart schema and model
 var cartSchema = new Schema(
     {
-        products: Array,
-        quantities: Array,
-        user: User,
+        products: [{ 
+            type: Schema.Types.ObjectId, 
+            ref: 'Product' 
+        }],
+        quantities: [Number],
+        user: { 
+            type: Schema.Types.ObjectId, 
+            ref: 'User' 
+        }
     }
 )
 var Cart = mongoose.model("carts", cartSchema);
@@ -95,7 +108,10 @@ var Cart = mongoose.model("carts", cartSchema);
 // Order schema and model
 var orderSchema = new Schema(
     {
-        user: User,
+        user: { 
+            type: Schema.Types.ObjectId, 
+            ref: 'User' 
+        },
         cost: Number,
         date: Date,
     }
@@ -107,83 +123,90 @@ var Order = mongoose.model("orders", orderSchema);
 /* Database API endpoints */
 
 // Add product to database
-express.post('/add_product', async function(req, res) {
+express.post('/add-product', async function(req, res) {
     const { name, image, description, cost, shippingCost } = req.body;
     const product = new Product({ name: name, image: image, description: description, cost: cost, shippingCost: shippingCost, rating: 0 });
 	
     product.save().then(() => {
-        console.log(`${product.name} has been saved in the database.`);
+        res.send(`${product.name} has been saved in the database.`);
     }).catch(err => {
-        console.log(`Error saving ${product.name}.`);
+        res.send(`Error saving ${product.name}.`);
     });
 });
 
 // Get products in database
-express.get('/get_products', async function(req, res) {
+express.get('/get-products', async function(req, res) {
     Product.find()
         .sort({})
         .exec()
         .then((products) => {
-            console.log(products);
             res.send(products);
         });
 });
 
 // Add user to database
 express.post('/register', async function(req, res) {
-    const { name, email, password } = req.body;
-    const user = new User({ name: name, email: email, password: password, purchaseHistory: [] });
+    const { name, email, password, address, province } = req.body;
+    const user = new User({ name: name, email: email, password: password, address: address, province: province, purchaseHistory: [] });
 	const cart = new Cart({ user: user, products: [], quantities: [] })
 
     // Create user
     user.save().then(() => {
-        console.log(`${user.name} has been saved in the database.`);
+        res.send(`${user.name} has been saved in the database.`);
     }).catch(err => {
-        console.log(`Error saving ${user.name}.`);
+        res.send(`Error saving ${user.name}.`);
     });
 
     // Create user's cart
     cart.save();
 });
 
-// Retrieve user from database
+// Check if user with given email and password combination exists
 express.get('/login', async function(req, res) {
-    const { email } = req.body;
+    const { email, password } = req.body;
 
-    User.findOne({ 'email': email }, 'password')
+    User.findOne({ 'email': email, "password": password })
         .exec()
         .then((user) => {
-            console.log(user);
-            res.send(user);
+            if (user) {
+                res.send("User authenticated.");
+            } else {
+                res.send("User not found.");
+            }
         });
 });
 
 // Update user in database
-express.put('/update_user', async function(req, res) {
+express.put('/update-user', async function(req, res) {
 	const { name, email, password, address, province } = req.body;
 	
-    User.updateOne({ email: email }, { $set: { rating: rating, email: email, password: password, address: address, province: province } })
+    User.updateOne({ email: email }, { $set: { name: name, email: email, password: password, address: address, province: province } })
 		.exec()
 		.then(() => {
-			console.log(`Updated ${name}`);
+			res.send(`Updated ${name}.`);
 		})
 		.catch((err) => {
-			onsole.log(`Failed to update ${name}.`);
+			res.send(`Failed to update ${name}.`);
 		});
 });
 
 // Delete user from database
-express.delete('/delete_user', async function (req, res) {
-	const { email } = req.params.name;
+express.delete('/delete-user', async function (req, res) {
+	const { email, userId } = req.body;
 	
+    // Delete user
     User.deleteOne({ email: email })
         .exec()
 		.then(() => {
-			console.log(`Deleted user with email ${email}`);
+			res.send(`Deleted user with email ${email}.`);
 		})
 		.catch((err) => {
-			console.log(`Failed to delete user with email ${email}}.`);
+			res.send(`Failed to delete user with email ${email}}.`);
 		});
+
+    // Delete user's cart
+    Cart.deleteOne({ user: userId })
+        .exec();
 });
 
 // Add comment
@@ -191,47 +214,161 @@ express.post('/comment', async function(req, res) {
     const { product, user, rating, text, images } = req.body;
     const comment = new Comment({ product: product, user: user, rating: rating, text: text, images: images });
 	
-    comment.save().then(() => {
-        console.log(`Comment saved in the database.`);
-    }).catch(err => {
-        console.log(`Error saving comment.`);
-    });
+    comment.save()
+        .then(() => {
+            res.send(`Comment saved in the database.`);
+        }).catch(err => {
+            res.send(`Error saving comment.`);
+        });
 });
 
 // Get comments for product
-express.get('/get_comments', async function(req, res) {
+express.get('/get-comments', async function(req, res) {
     const { product } = req.body;
 
-    Product.find({ 'product': product })
+    Comment.find({ 'product': product })
         .exec()
         .then((comments) => {
             res.send(comments);
+        }).catch(err => {
+            res.send(`Error loading comments.`);
+        });
+});
+
+// Update product rating
+express.put('/update-rating', async function(req, res) {
+    const { product } = req.body;
+    var ratingSum = 0;
+    var ratingCount = 0;
+    var rating = 0;
+
+    // Find all comments for product and get sum and count of ratings
+    await Comment.find({ 'product': product }, "rating")
+        .exec()
+        .then((comments) => {
+            comments.map((comment) => {
+                ratingSum += comment.rating;
+                ratingCount++;
+            });
+        }).catch(err => {
+            res.send(`Error loading comments.`);
+            return;
+        });
+
+    // Calculate average rating from sum and count
+    rating = ratingSum / ratingCount;
+
+    // Update rating
+    Product.updateOne({ '_id': product }, { $set: { rating: rating } })
+        .exec()
+        .then(() => {
+            res.send(`Rating has been updated to ${rating}.`);
+        }).catch(err => {
+            res.send(`Error updating product.`);
         });
 });
 
 // Update cart
-express.put('/update_cart', async function(req, res) {
-    const { user } = req.body;
+express.put('/update-cart', async function(req, res) {
+    const { user, product, quantity } = req.body;
+    var products = [];
+    var quantities = [];
+    var index;
 
-    Cart.updateOne({ user: user }, { $set: { } })
-    .exec()
-    .then(() => {
-        console.log(`Updated ${user.name}'s cart.`);
-    })
-    .catch((err) => {
-        onsole.log(`Failed to update ${user.name}'s cart.`);
-    });
+    // Get existing cart products and quantities
+    await Cart.findOne({ user: user }, "products quantities")
+        .exec()
+        .then((cart) => {
+            products = cart.products;
+            quantities = cart.quantities;
+        })
+        .catch((err) => {
+            res.send(`Error loading cart.`);
+        })
+
+    // Check if product in cart
+    index = products.indexOf(product);
+    if (index >= 0) {
+        // If product in cart, update existing quantity
+        quantities[index] = quantity;
+    } else {
+        // If product not in cart, add new product and quantity
+        products.push(product);
+        quantities.push(quantity);
+    }
+
+    Cart.updateOne({ user: user }, { $set: { products: products, quantities: quantities } })
+        .exec()
+        .then(() => {
+            res.send(`Updated cart.`);
+        })
+        .catch((err) => {
+            res.send(`Failed to update cart.`);
+        });
 });
 
 // Create order
-express.post('/order', async function(req, res) {
-    const { user } = req.body;
+express.post('/order', async function(req, res, next) {
+    const { email, user: userId } = req.body;
+    const date = new Date();
+    var products = [];
+    var quantities = [];
+    var purchaseHistory = [];
+    var cost = 0;
+
+    // Get user id and purchase history
+    await User.findOne({ email: email }, "_id purchaseHistory")
+        .exec()
+        .then((user) => {
+            purchaseHistory = user.purchaseHistory;
+            user = user._id;
+        }).catch(err => {
+            next(err);
+        });
+
+    // Get products and quantities in cart
+    await Cart.findOne({ user: userId }, "products quantities")
+        .exec()
+        .then((cart) => {
+            if (cart) {
+                products = cart.products;
+                quantities = cart.quantities;
+            }
+        }).catch(err => {
+            next(err);
+        });
+
+    // Add products in cart to user purchase history
+    purchaseHistory.concat(products);
+
+    // Calculate cost of order
+    for (var i = 0; i < products.length; i++) {
+        cost += (products[i].cost * quantities[i]) + products[i].shippingCost;
+    }
+
+    // Update user purchase history
+    User.updateOne({ email: email }, { $set: { purchaseHistory: purchaseHistory } })
+        .exec()
+        .catch(err => {
+            next(err);
+        });
 
     // Reset user's cart
-    Cart.updateOne({ user: user }, { $set: { products: [], quantities: [] } })
-    .exec();
+    Cart.updateOne({ user: userId }, { $set: { products: [], quantities: [] } })
+        .exec()
+        .catch(err => {
+            next(err);
+        });
+
+    // Create order
+    const order = new Order({ user: userId, cost: cost, date: date });
 
     // Record user's order
-    Order.save({ user: user })
-    .exec();
+    order.save()
+        .then(() => {
+            res.send(`Recorded order`);
+        })
+        .catch(err => {
+            res.send(`Error recording order.`);
+        });
 });
