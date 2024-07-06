@@ -170,14 +170,14 @@ express.delete('/delete-product', async function (req, res) {
         .exec()
 		.then(() => {
 			res.send(`Deleted product named ${name}.`);
+
+            // Delete product comments
+            Comment.deleteMany({ product: productId })
+                .exec();
 		})
 		.catch((err) => {
 			res.send(`Failed to delete product named ${name}}.`);
 		});
-
-    // Delete product comments
-    Comment.deleteMany({ product: productId })
-        .exec();
 });
 
 // Update product rating
@@ -270,14 +270,14 @@ express.delete('/delete-user', async function (req, res) {
         .exec()
 		.then(() => {
 			res.send(`Deleted user with email ${email}.`);
+
+            // Delete user's cart
+            Cart.deleteOne({ user: userId })
+                .exec();
 		})
 		.catch((err) => {
 			res.send(`Failed to delete user with email ${email}}.`);
 		});
-
-    // Delete user's cart
-    Cart.deleteOne({ user: userId })
-        .exec();
 });
 
     /* Comments */
@@ -286,12 +286,12 @@ express.delete('/delete-user', async function (req, res) {
 express.post('/comment', async function(req, res) {
     const { product, user, rating, text, images } = req.body;
     const comment = new Comment({ product: product, user: user, rating: rating, text: text, images: images });
-	
+    
     comment.save()
         .then(() => {
             res.send(`Comment saved in the database.`);
         }).catch(err => {
-            res.send(`Error saving comment.`);
+            res.send(`Error saving comment. ${product}`);
         });
 });
 
@@ -324,7 +324,7 @@ express.put('/get-cart', async function(req, res) {
 })
 
 // Update cart
-express.put('/update-cart', async function(req, res) {
+express.put('/update-cart', async function(req, res, next) {
     const { user, product, quantity } = req.body;
     var products = [];
     var quantities = [];
@@ -340,7 +340,7 @@ express.put('/update-cart', async function(req, res) {
             }
         })
         .catch((err) => {
-            res.send(`Error loading cart.`);
+            next(err);
         })
 
     // Check if product in cart
@@ -427,7 +427,7 @@ express.post('/order', async function(req, res, next) {
     // Record user's order
     order.save()
         .then(() => {
-            res.send(`Recorded order`);
+            res.send(`Recorded order.`);
         })
         .catch(err => {
             res.send(`Error recording order.`);
