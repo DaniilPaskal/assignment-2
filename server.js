@@ -354,6 +354,13 @@ express.put('/update-cart', async function(req, res, next) {
         quantities.push(quantity);
     }
 
+    // If quantity is 0, remove product and quantity from respective arrays
+    if (quantity == 0) {
+        index = products.indexOf(product);
+        products.splice(index);
+        quantities.splice(index);
+    }
+
     Cart.updateOne({ user: user }, { $set: { products: products, quantities: quantities } })
         .exec()
         .then(() => {
