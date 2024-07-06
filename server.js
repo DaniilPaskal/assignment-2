@@ -151,13 +151,13 @@ express.get('/get-products', async function(req, res) {
 express.put('/update-product', async function(req, res) {
 	const { name, image, description, cost, shippingCost } = req.body;
 	
-    User.updateOne({ email: email }, { $set: { name: name, image: image, description: description, cost: cost, shippingCost: shippingCost } })
+    Product.updateOne({ name: name }, { $set: { image: image, description: description, cost: cost, shippingCost: shippingCost } })
 		.exec()
 		.then(() => {
-			res.send(`Updated product named ${name}.`);
+			res.send(`Updated ${name}.`);
 		})
 		.catch((err) => {
-			res.send(`Failed to update product named ${name}.`);
+			res.send(`Failed to update ${name}.`);
 		});
 });
 
@@ -251,7 +251,7 @@ express.get('/login', async function(req, res) {
 express.put('/update-user', async function(req, res) {
 	const { name, email, password, address, province } = req.body;
 	
-    User.updateOne({ email: email }, { $set: { name: name, email: email, password: password, address: address, province: province } })
+    User.updateOne({ email: email }, { $set: { name: name, password: password, address: address, province: province } })
 		.exec()
 		.then(() => {
 			res.send(`Updated ${name}.`);
